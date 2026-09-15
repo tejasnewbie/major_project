@@ -24,23 +24,25 @@ class LLMResponse:
 
 
 class RateLimiter:
-    """Token bucket rate limiter."""
+    """Token bucket rate limiter with multi-key awareness."""
     
-    def __init__(self, requests_per_minute: int):
+    def __init__(self, requests_per_minute: int, num_keys: int = 5):
         self.requests_per_minute = requests_per_minute
-        self.interval = 60.0 / requests_per_minute
+        self.num_keys = max(1, num_keys)
+        effective_rpm = self.requests_per_minute * self.num_keys
+        self.interval = 60.0 / effective_rpm if effective_rpm > 0 else 0.05
         self.last_request_time = 0
         self._lock = asyncio.Lock()
     
     async def acquire(self):
-        """Wait until a request can be made."""
+        """Wait briefly if needed, but do not stall concurrent requests."""
         async with self._lock:
             now = time.time()
             time_since_last = now - self.last_request_time
             if time_since_last < self.interval:
                 wait_time = self.interval - time_since_last
-                logger.debug(f"Rate limiting: waiting {wait_time:.2f}s")
-                await asyncio.sleep(wait_time)
+                if wait_time > 0.05:
+                    await asyncio.sleep(min(wait_time, 0.15))
             self.last_request_time = time.time()
 
 
@@ -50,6 +52,7 @@ class BaseLLMClient(ABC):
     def __init__(self, settings: Settings):
         self.settings = settings
         self.rate_limiter: Optional[RateLimiter] = None
+        self.key_cooldowns: List[float] = []
     
     @abstractmethod
     async def generate(
@@ -84,7 +87,8 @@ class GroqClient(BaseLLMClient):
             Groq(api_key=key, timeout=self.PER_KEY_TIMEOUT)
             for key in self.api_keys
         ]
-        self.rate_limiter = RateLimiter(settings.groq_rate_limit)
+        self.key_cooldowns = [0.0] * len(self.clients)
+        self.rate_limiter = RateLimiter(settings.groq_rate_limit, num_keys=len(self.clients))
     
     async def generate(
         self, 
@@ -94,10 +98,9 @@ class GroqClient(BaseLLMClient):
         temperature: float = 0.7,
         max_tokens: int = 4096
     ) -> LLMResponse:
-        """Generate completion using Groq SDK with automatic key rotation on error or 15s timeout."""
+        """Generate completion using Groq SDK with automatic key rotation on error or timeout."""
         start_time = time.time()
-        # model is already a literal model ID — no settings lookup needed
-        actual_model = model
+        actual_model = getattr(self.settings, model, model)
         
         messages = []
         if system_prompt:
@@ -110,6 +113,14 @@ class GroqClient(BaseLLMClient):
 
         last_error = None
         for attempt in range(total_keys):
+            now = time.time()
+            # Pick a key that is not in cooldown
+            for i in range(total_keys):
+                idx = (self.current_key_idx + i) % total_keys
+                if self.key_cooldowns[idx] <= now:
+                    self.current_key_idx = idx
+                    break
+
             await self.rate_limiter.acquire()
             client = self.clients[self.current_key_idx]
             current_key_num = self.current_key_idx + 1
@@ -149,20 +160,24 @@ class GroqClient(BaseLLMClient):
                 call_elapsed = time.time() - call_start
                 last_error = f"TimeoutError: Call exceeded {self.PER_KEY_TIMEOUT}s limit ({call_elapsed:.1f}s)"
                 logger.warning(f"Groq Key #{current_key_num} exceeded {self.PER_KEY_TIMEOUT}s: rotating key...")
+                self.key_cooldowns[self.current_key_idx] = time.time() + 10.0
                 if total_keys > 1 and attempt < total_keys - 1:
                     self.current_key_idx = (self.current_key_idx + 1) % total_keys
                     next_key_num = self.current_key_idx + 1
                     logger.info(f"Rotating Groq to Key #{next_key_num}/{total_keys}...")
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep(0.05)
             except Exception as e:
                 call_elapsed = time.time() - call_start
                 last_error = f"{type(e).__name__}: {str(e)}"
-                logger.warning(f"Groq Key #{current_key_num} error ({call_elapsed:.1f}s): {last_error}")
+                is_rate_limit = "429" in str(e) or "rate" in str(e).lower()
+                cooldown_time = 20.0 if is_rate_limit else 5.0
+                self.key_cooldowns[self.current_key_idx] = time.time() + cooldown_time
+                logger.warning(f"Groq Key #{current_key_num} error ({call_elapsed:.1f}s, rate_limit={is_rate_limit}): {last_error}")
                 if total_keys > 1 and attempt < total_keys - 1:
                     self.current_key_idx = (self.current_key_idx + 1) % total_keys
                     next_key_num = self.current_key_idx + 1
                     logger.info(f"Rotating Groq to Key #{next_key_num}/{total_keys}...")
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep(0.05)
 
         return LLMResponse(
             content="",
@@ -176,7 +191,7 @@ class GroqClient(BaseLLMClient):
 class OpenRouterClient(BaseLLMClient):
     """Client for OpenRouter API using OpenAI SDK with multi-key pool rotation."""
     
-    PER_KEY_TIMEOUT = 15.0
+    PER_KEY_TIMEOUT = 20.0
 
     def __init__(self, settings: Settings):
         super().__init__(settings)
@@ -193,7 +208,8 @@ class OpenRouterClient(BaseLLMClient):
             )
             for key in self.api_keys
         ]
-        self.rate_limiter = RateLimiter(settings.open_router_rate_limit)
+        self.key_cooldowns = [0.0] * len(self.clients)
+        self.rate_limiter = RateLimiter(settings.open_router_rate_limit, num_keys=len(self.clients))
     
     async def generate(
         self, 
@@ -203,10 +219,9 @@ class OpenRouterClient(BaseLLMClient):
         temperature: float = 0.7,
         max_tokens: int = 4096
     ) -> LLMResponse:
-        """Generate completion using OpenRouter with automatic key rotation on error or 15s timeout."""
+        """Generate completion using OpenRouter with automatic key rotation on error or timeout."""
         start_time = time.time()
-        # model is already a literal model ID — no settings lookup needed
-        actual_model = model
+        actual_model = getattr(self.settings, model, model)
         
         messages = []
         if system_prompt:
@@ -219,6 +234,13 @@ class OpenRouterClient(BaseLLMClient):
 
         last_error = None
         for attempt in range(total_keys):
+            now = time.time()
+            for i in range(total_keys):
+                idx = (self.current_key_idx + i) % total_keys
+                if self.key_cooldowns[idx] <= now:
+                    self.current_key_idx = idx
+                    break
+
             await self.rate_limiter.acquire()
             client = self.clients[self.current_key_idx]
             current_key_num = self.current_key_idx + 1
@@ -262,20 +284,24 @@ class OpenRouterClient(BaseLLMClient):
                 call_elapsed = time.time() - call_start
                 last_error = f"TimeoutError: Call exceeded {self.PER_KEY_TIMEOUT}s limit ({call_elapsed:.1f}s)"
                 logger.warning(f"OpenRouter Key #{current_key_num} exceeded {self.PER_KEY_TIMEOUT}s: rotating key...")
+                self.key_cooldowns[self.current_key_idx] = time.time() + 10.0
                 if total_keys > 1 and attempt < total_keys - 1:
                     self.current_key_idx = (self.current_key_idx + 1) % total_keys
                     next_key_num = self.current_key_idx + 1
                     logger.info(f"Rotating OpenRouter to Key #{next_key_num}/{total_keys}...")
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep(0.05)
             except Exception as e:
                 call_elapsed = time.time() - call_start
                 last_error = f"{type(e).__name__}: {str(e)}"
-                logger.warning(f"OpenRouter Key #{current_key_num} error ({call_elapsed:.1f}s): {last_error}")
+                is_rate_limit = "429" in str(e) or "rate" in str(e).lower()
+                cooldown_time = 20.0 if is_rate_limit else 5.0
+                self.key_cooldowns[self.current_key_idx] = time.time() + cooldown_time
+                logger.warning(f"OpenRouter Key #{current_key_num} error ({call_elapsed:.1f}s, rate_limit={is_rate_limit}): {last_error}")
                 if total_keys > 1 and attempt < total_keys - 1:
                     self.current_key_idx = (self.current_key_idx + 1) % total_keys
                     next_key_num = self.current_key_idx + 1
                     logger.info(f"Rotating OpenRouter to Key #{next_key_num}/{total_keys}...")
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep(0.05)
 
         return LLMResponse(
             content="",
@@ -289,7 +315,7 @@ class OpenRouterClient(BaseLLMClient):
 class NvidiaClient(BaseLLMClient):
     """Client for NVIDIA NIM API using OpenAI SDK with multi-key pool rotation."""
     
-    PER_KEY_TIMEOUT = 15.0
+    PER_KEY_TIMEOUT = 25.0
 
     def __init__(self, settings: Settings):
         super().__init__(settings)
@@ -306,7 +332,8 @@ class NvidiaClient(BaseLLMClient):
             )
             for key in self.api_keys
         ]
-        self.rate_limiter = RateLimiter(settings.nvidia_rate_limit)
+        self.key_cooldowns = [0.0] * len(self.clients)
+        self.rate_limiter = RateLimiter(settings.nvidia_rate_limit, num_keys=len(self.clients))
     
     def _get_model_params(self, model: str) -> dict:
         """Get model-specific extra_body parameters."""
@@ -326,10 +353,9 @@ class NvidiaClient(BaseLLMClient):
         temperature: float = 0.7,
         max_tokens: int = 4096
     ) -> LLMResponse:
-        """Generate completion using OpenAI SDK for NVIDIA NIM with key rotation on error or 15s timeout."""
+        """Generate completion using OpenAI SDK for NVIDIA NIM with key rotation on error or timeout."""
         start_time = time.time()
-        # model is already a literal model ID — no settings lookup needed
-        actual_model = model
+        actual_model = getattr(self.settings, model, model)
         
         messages = []
         if system_prompt:
@@ -353,6 +379,13 @@ class NvidiaClient(BaseLLMClient):
 
         last_error = None
         for attempt in range(total_keys):
+            now = time.time()
+            for i in range(total_keys):
+                idx = (self.current_key_idx + i) % total_keys
+                if self.key_cooldowns[idx] <= now:
+                    self.current_key_idx = idx
+                    break
+
             await self.rate_limiter.acquire()
             client = self.clients[self.current_key_idx]
             current_key_num = self.current_key_idx + 1
@@ -422,20 +455,24 @@ class NvidiaClient(BaseLLMClient):
                 call_elapsed = time.time() - call_start
                 last_error = f"TimeoutError: Call exceeded {self.PER_KEY_TIMEOUT}s limit ({call_elapsed:.1f}s)"
                 logger.warning(f"NVIDIA Key #{current_key_num} exceeded {self.PER_KEY_TIMEOUT}s: rotating key...")
+                self.key_cooldowns[self.current_key_idx] = time.time() + 10.0
                 if total_keys > 1 and attempt < total_keys - 1:
                     self.current_key_idx = (self.current_key_idx + 1) % total_keys
                     next_key_num = self.current_key_idx + 1
                     logger.info(f"Rotating NVIDIA to Key #{next_key_num}/{total_keys}...")
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep(0.05)
             except Exception as e:
                 call_elapsed = time.time() - call_start
                 last_error = f"{type(e).__name__}: {str(e)}"
-                logger.warning(f"NVIDIA Key #{current_key_num} error ({call_elapsed:.1f}s): {last_error}")
+                is_rate_limit = "429" in str(e) or "rate" in str(e).lower()
+                cooldown_time = 20.0 if is_rate_limit else 5.0
+                self.key_cooldowns[self.current_key_idx] = time.time() + cooldown_time
+                logger.warning(f"NVIDIA Key #{current_key_num} error ({call_elapsed:.1f}s, rate_limit={is_rate_limit}): {last_error}")
                 if total_keys > 1 and attempt < total_keys - 1:
                     self.current_key_idx = (self.current_key_idx + 1) % total_keys
                     next_key_num = self.current_key_idx + 1
                     logger.info(f"Rotating NVIDIA to Key #{next_key_num}/{total_keys}...")
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep(0.05)
 
         return LLMResponse(
             content="",
@@ -538,8 +575,41 @@ class LLMClientManager:
         )
     
     def _get_model_for_provider(self, provider: str, requested_model: str) -> str:
-        """Return the model ID as-is — model names are already literal IDs in CATEGORY_MODEL_CONFIG."""
-        return requested_model
+        """Map requested model dynamically to the provider's model from settings (.env)."""
+        # If requested model is a setting attribute matching this provider
+        if hasattr(self.settings, requested_model) and requested_model.startswith(provider):
+            val = getattr(self.settings, requested_model)
+            if val:
+                return val
+
+        # Determine role (primary, secondary, fallback/tertiary)
+        role = "primary"
+        req_lower = requested_model.lower()
+        if "secondary" in req_lower:
+            role = "secondary"
+        elif "fallback" in req_lower or "tertiary" in req_lower:
+            role = "fallback"
+
+        if provider == "groq":
+            if role == "secondary":
+                return self.settings.groq_model_secondary or "openai/gpt-oss-120b"
+            elif role == "fallback":
+                return self.settings.groq_model_fallback or "openai/gpt-oss-20b"
+            return self.settings.groq_model_primary or "qwen/qwen3.8-27b"
+        elif provider == "nvidia":
+            if role == "secondary":
+                return self.settings.nvidia_model_secondary or "meta/muse-glimmer-30b"
+            elif role == "fallback":
+                return self.settings.nvidia_model_tertiary or "nvidia/nemotron-3.5-lightning-30b-a3b"
+            return self.settings.nvidia_model_primary or "nvidia/nemotron-3.5-lightning-30b-a3b"
+        elif provider == "open_router":
+            if role == "secondary":
+                return self.settings.open_router_model_secondary or "nex-agi/nex-n2.5-mini:free"
+            elif role == "fallback":
+                return self.settings.open_router_model_fallback or "cohere/north-mini-code:free"
+            return self.settings.open_router_model_primary or "liquid/lfm-2.5-2.6b:free"
+
+        return getattr(self.settings, requested_model, requested_model)
     
     async def close_all(self):
         """Close all client connections."""

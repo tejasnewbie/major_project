@@ -33,7 +33,7 @@ class BaseStrategy(ABC):
         "nvidia": 16000,  # Kimi K2.5 has larger context
     }
     
-    MAX_OUTPUT_TOKENS = 4000
+    MAX_OUTPUT_TOKENS = 1500
     
     def __init__(self, settings, category: str):
         self.settings = settings
@@ -77,7 +77,7 @@ class BaseStrategy(ABC):
         for i, crit in enumerate(critiques, 1):
             content = getattr(crit, 'content', str(crit))
             # Truncate critiques
-            truncated = self.truncate_text(content, 2000)
+            truncated = self.truncate_text(content, 1200)
             critiques_text.append(f"Feedback {i}:\n{truncated}")
         
         critiques_joined = '\n\n---\n\n'.join(critiques_text)
@@ -90,17 +90,18 @@ class BaseStrategy(ABC):
         
         system_prompt = f"""{REFINEMENT_PROMPTS['system']}
 
-{refinement_instruction}"""
+{refinement_instruction}
+Focus on simplicity and clarity. Do not overcomplicate or import unnecessary system modules."""
 
         user_prompt = f"""Original Request: {query}
 
 CURRENT BEST SOLUTION (from {winner_provider}):
-{self.truncate_text(winner_content, 4000)}
+{self.truncate_text(winner_content, 3000)}
 
 FEEDBACK TO ADDRESS:
 {critiques_joined}
 
-Provide the COMPLETE IMPROVED SOLUTION."""
+Provide the COMPLETE, CLEAN, AND IMPROVED SOLUTION."""
 
         response = await llm_manager.generate_with_fallback(
             primary_provider=provider,

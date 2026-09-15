@@ -101,6 +101,53 @@ class ProblemClassifier:
         }
         return descriptions.get(category, "General")
 
+    @classmethod
+    def assess_difficulty(cls, query: str, category: str = "general") -> str:
+        """
+        Assess problem difficulty into:
+        - 'simple': Greetings, trivial Q&A, short greetings. Directly answered in 1-2s.
+        - 'medium': Standard tasks (algorithms like palindrome, short explanations). Answered via fast 2-agent consensus.
+        - 'complex': Deep architecture, system design, hard math proofs, lengthy prompts. Full multi-agent debate.
+        """
+        q = query.strip().lower()
+        words = q.split()
+        word_count = len(words)
+
+        # 1. Greetings & conversational one-liners
+        greeting_patterns = [
+            r'^(hi|hello|hey|heya|howdy|yo|sup|greetings|hola)\b',
+            r'^good\s+(morning|afternoon|evening|day|night)\b',
+            r'^(how are you|who are you|what can you do|what is your name)\b',
+            r'^(thanks|thank you|bye|goodbye|see ya)\b'
+        ]
+        if any(re.search(pat, q) for pat in greeting_patterns):
+            return "simple"
+
+        # 2. Trivial short factual / math questions (e.g. "what is 2+2", "capital of france")
+        trivial_math = r'^(\d+\s*[\+\-\*\/\^]\s*\d+\s*\??|what is \d+\s*[\+\-\*\/\^]\s*\d+\s*\??)$'
+        if re.match(trivial_math, q):
+            return "simple"
+
+        if word_count <= 6 and not any(k in q for k in ["design", "architecture", "complex", "implement", "optimize", "system"]):
+            if category in ["general", "factual"]:
+                return "simple"
+
+        # 3. Complex prompts
+        complex_indicators = [
+            "architecture", "system design", "distributed", "microservices",
+            "end-to-end", "step by step proof", "formal proof", "in-depth analysis",
+            "full stack", "production ready", "multi-tier", "comprehensive review"
+        ]
+        if word_count > 60 or any(ci in q for ci in complex_indicators):
+            return "complex"
+
+        if category == "design" and word_count > 25:
+            return "complex"
+
+        # Default standard queries (palindrome, explain X, moderate coding/math)
+        return "medium"
+
 
 # Backward compatibility
 ProblemTypeClassifier = ProblemClassifier
+

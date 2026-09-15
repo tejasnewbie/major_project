@@ -104,88 +104,88 @@ def get_settings() -> Settings:
 
 
 # =============================================
-# MODEL ASSIGNMENTS — Groq-first for speed
-# Using LITERAL model IDs (not settings attributes) so .env cannot override
+# MODEL ASSIGNMENTS BY CATEGORY
+# Refers dynamically to settings (which load from .env)
 # =============================================
 
 CATEGORY_MODEL_CONFIG = {
     "design": {
         "generation": [
-            {"provider": "groq", "model": "llama-3.3-70b-versatile", "reasoning_style": "creative"},
-            {"provider": "groq", "model": "llama-3.1-8b-instant", "reasoning_style": "structured"},
-            {"provider": "open_router", "model": "meta-llama/llama-3.3-70b-instruct:free", "reasoning_style": "visual"},
+            {"provider": "nvidia", "model": "nvidia_model_secondary", "reasoning_style": "creative"},
+            {"provider": "groq", "model": "groq_model_primary", "reasoning_style": "structured"},
+            {"provider": "open_router", "model": "open_router_model_primary", "reasoning_style": "visual"},
         ],
-        "scoring": {"provider": "groq", "model": "llama-3.3-70b-versatile"},
+        "scoring": {"provider": "groq", "model": "groq_model_primary"},
         "refinement": [
-            {"provider": "groq", "model": "llama-3.3-70b-versatile"},
-            {"provider": "groq", "model": "gemma2-9b-it"},
+            {"provider": "nvidia", "model": "nvidia_model_primary"},
+            {"provider": "groq", "model": "groq_model_fallback"},
         ],
-        "synthesis": {"provider": "groq", "model": "llama-3.3-70b-versatile"},
+        "synthesis": {"provider": "groq", "model": "groq_model_primary"},
     },
     "math": {
         "generation": [
-            {"provider": "groq", "model": "llama-3.3-70b-versatile", "reasoning_style": "analytical"},
-            {"provider": "groq", "model": "gemma2-9b-it", "reasoning_style": "step_by_step"},
-            {"provider": "groq", "model": "llama-3.1-8b-instant", "reasoning_style": "rigorous"},
+            {"provider": "groq", "model": "groq_model_primary", "reasoning_style": "analytical"},
+            {"provider": "nvidia", "model": "nvidia_model_secondary", "reasoning_style": "step_by_step"},
+            {"provider": "open_router", "model": "open_router_model_primary", "reasoning_style": "rigorous"},
         ],
-        "scoring": {"provider": "groq", "model": "llama-3.3-70b-versatile"},
+        "scoring": {"provider": "groq", "model": "groq_model_primary"},
         "refinement": [
-            {"provider": "groq", "model": "llama-3.3-70b-versatile"},
-            {"provider": "groq", "model": "llama-3.1-8b-instant"},
+            {"provider": "groq", "model": "groq_model_primary"},
+            {"provider": "groq", "model": "groq_model_secondary"},
         ],
-        "synthesis": {"provider": "groq", "model": "llama-3.3-70b-versatile"},
+        "synthesis": {"provider": "groq", "model": "groq_model_primary"},
     },
     "code": {
         "generation": [
-            {"provider": "groq", "model": "llama-3.3-70b-versatile", "reasoning_style": "optimal"},
-            {"provider": "groq", "model": "gemma2-9b-it", "reasoning_style": "clean"},
-            {"provider": "groq", "model": "llama-3.1-8b-instant", "reasoning_style": "robust"},
+            {"provider": "groq", "model": "groq_model_primary", "reasoning_style": "optimal"},
+            {"provider": "nvidia", "model": "nvidia_model_secondary", "reasoning_style": "clean"},
+            {"provider": "open_router", "model": "open_router_model_primary", "reasoning_style": "robust"},
         ],
-        "scoring": {"provider": "groq", "model": "llama-3.3-70b-versatile"},
+        "scoring": {"provider": "groq", "model": "groq_model_primary"},
         "refinement": [
-            {"provider": "groq", "model": "llama-3.3-70b-versatile"},
-            {"provider": "groq", "model": "llama-3.1-8b-instant"},
+            {"provider": "groq", "model": "groq_model_primary"},
+            {"provider": "groq", "model": "groq_model_fallback"},
         ],
-        "synthesis": {"provider": "groq", "model": "llama-3.3-70b-versatile"},
+        "synthesis": {"provider": "groq", "model": "groq_model_primary"},
     },
     "factual": {
         "generation": [
-            {"provider": "groq", "model": "llama-3.3-70b-versatile", "reasoning_style": "comprehensive"},
-            {"provider": "groq", "model": "gemma2-9b-it", "reasoning_style": "concise"},
-            {"provider": "groq", "model": "llama-3.1-8b-instant", "reasoning_style": "structured"},
+            {"provider": "groq", "model": "groq_model_primary", "reasoning_style": "comprehensive"},
+            {"provider": "open_router", "model": "open_router_model_primary", "reasoning_style": "concise"},
+            {"provider": "groq", "model": "groq_model_secondary", "reasoning_style": "structured"},
         ],
-        "scoring": {"provider": "groq", "model": "llama-3.3-70b-versatile"},
+        "scoring": {"provider": "groq", "model": "groq_model_primary"},
         "refinement": [
-            {"provider": "groq", "model": "llama-3.3-70b-versatile"},
-            {"provider": "groq", "model": "llama-3.1-8b-instant"},
+            {"provider": "groq", "model": "groq_model_primary"},
+            {"provider": "groq", "model": "groq_model_secondary"},
         ],
-        "synthesis": {"provider": "groq", "model": "llama-3.3-70b-versatile"},
+        "synthesis": {"provider": "groq", "model": "groq_model_primary"},
     },
     "writing": {
         "generation": [
-            {"provider": "groq", "model": "llama-3.3-70b-versatile", "reasoning_style": "engaging"},
-            {"provider": "groq", "model": "gemma2-9b-it", "reasoning_style": "professional"},
-            {"provider": "groq", "model": "llama-3.1-8b-instant", "reasoning_style": "creative"},
+            {"provider": "groq", "model": "groq_model_primary", "reasoning_style": "engaging"},
+            {"provider": "groq", "model": "groq_model_secondary", "reasoning_style": "professional"},
+            {"provider": "open_router", "model": "open_router_model_primary", "reasoning_style": "creative"},
         ],
-        "scoring": {"provider": "groq", "model": "llama-3.3-70b-versatile"},
+        "scoring": {"provider": "groq", "model": "groq_model_primary"},
         "refinement": [
-            {"provider": "groq", "model": "llama-3.3-70b-versatile"},
-            {"provider": "groq", "model": "llama-3.1-8b-instant"},
+            {"provider": "groq", "model": "groq_model_primary"},
+            {"provider": "groq", "model": "groq_model_secondary"},
         ],
-        "synthesis": {"provider": "groq", "model": "llama-3.3-70b-versatile"},
+        "synthesis": {"provider": "groq", "model": "groq_model_primary"},
     },
     "general": {
         "generation": [
-            {"provider": "groq", "model": "llama-3.3-70b-versatile", "reasoning_style": "analytical"},
-            {"provider": "groq", "model": "gemma2-9b-it", "reasoning_style": "structured"},
-            {"provider": "groq", "model": "llama-3.1-8b-instant", "reasoning_style": "balanced"},
+            {"provider": "groq", "model": "groq_model_primary", "reasoning_style": "analytical"},
+            {"provider": "nvidia", "model": "nvidia_model_secondary", "reasoning_style": "structured"},
+            {"provider": "open_router", "model": "open_router_model_primary", "reasoning_style": "balanced"},
         ],
-        "scoring": {"provider": "groq", "model": "llama-3.3-70b-versatile"},
+        "scoring": {"provider": "groq", "model": "groq_model_primary"},
         "refinement": [
-            {"provider": "groq", "model": "llama-3.3-70b-versatile"},
-            {"provider": "groq", "model": "llama-3.1-8b-instant"},
+            {"provider": "groq", "model": "groq_model_primary"},
+            {"provider": "groq", "model": "groq_model_secondary"},
         ],
-        "synthesis": {"provider": "groq", "model": "llama-3.3-70b-versatile"},
+        "synthesis": {"provider": "groq", "model": "groq_model_primary"},
     },
 }
 
@@ -194,16 +194,16 @@ CATEGORY_MODEL_CONFIG = {
 # Short, focused reasoning prompts (no lengthy multi-step instructions)
 REASONING_PROMPTS = {
     "math": {
-        "analytical": "Solve step-by-step. Show your work. State the final answer clearly.",
+        "analytical": "Solve step-by-step. Show your work clearly. State the final answer.",
         "step_by_step": "Break down into clear numbered steps. State the final answer.",
-        "rigorous": "Provide a rigorous solution with clear reasoning at each step.",
+        "rigorous": "Provide a clean solution with clear logical reasoning.",
         "structured": "Show a structured solution with steps and a clear final answer.",
     },
     "code": {
-        "optimal": "Write efficient, well-commented code that handles edge cases.",
-        "clean": "Write clean, readable code with clear variable names.",
-        "robust": "Write code with proper error handling.",
-        "structured": "Write organized code with clear structure and comments.",
+        "optimal": "Write clean, simple, and direct code. Do not import unnecessary system libraries (like sys, os, subprocess) or overcomplicate with complex regex unless explicitly asked. Focus on simple, readable Python logic.",
+        "clean": "Write clean, straightforward, readable code with simple variable names. Keep it minimal and avoid over-engineering.",
+        "robust": "Write direct, robust code that handles basic edge cases cleanly and simply without unnecessary imports.",
+        "structured": "Write well-organized, readable code with clear structure and clean simplicity.",
     },
     "design": {
         "creative": "Create an innovative, visually appealing implementation.",

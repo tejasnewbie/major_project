@@ -71,12 +71,13 @@ class DebateOrchestrator:
         query: str,
         stream: bool = True
     ) -> AsyncGenerator[Dict[str, Any], None]:
-        """Run the 4-round debate process."""
+        """Run difficulty-adaptive debate process (fast direct answer for simple, light for medium, full for complex)."""
         start_time = datetime.now()
         result = DebateResult(query=query, problem_type="", category="")
         
-        # === ROUND 0: Classification ===
+        # === STEP 0: Classification & Difficulty Assessment ===
         category, confidence = ProblemClassifier.classify(query)
+        difficulty = ProblemClassifier.assess_difficulty(query, category)
         result.category = category
         result.problem_type = category
         
@@ -84,11 +85,106 @@ class DebateOrchestrator:
         model_config = strategy.get_round_config()
         
         yield self._create_progress("classification", 
-            f"Category: {ProblemClassifier.get_category_description(category)}",
-            {"category": category, "confidence": confidence})
+            f"Category: {ProblemClassifier.get_category_description(category)} | Difficulty: {difficulty.capitalize()}",
+            {"category": category, "confidence": confidence, "difficulty": difficulty})
         
-        # === ROUND 1: Generation ===
-        yield self._create_progress("round1_start", "Generation: Creating solutions...")
+        # === PATH 1: SIMPLE QUERIES (Greetings, trivial questions, etc.) ===
+        # Direct fast answer without heavy multi-agent overhead (1-2s response)
+        if difficulty == "simple":
+            yield self._create_progress("round1_start", "Generating direct answer...")
+            
+            response = await self.llm_manager.generate_with_fallback(
+                primary_provider="groq",
+                model="groq_model_primary",
+                prompt=f"Respond directly and helpfully: {query}",
+                system_prompt="You are a helpful, clear, and direct AI assistant. Answer concisely and naturally. Do not overcomplicate.",
+                temperature=0.7,
+                max_tokens=600
+            )
+            
+            agent_resp = AgentResponse(
+                round_num=1,
+                agent_id="agent_1",
+                provider=response.provider,
+                model=response.model.split('/')[-1] if response.model else "primary",
+                content=response.content,
+                latency=response.latency
+            )
+            result.round1_responses = [agent_resp]
+            result.winner_idx = 0
+            result.scores = [SolutionScore(solution_idx=0, total_score=20.0, breakdown={"clarity": 10, "directness": 10}, summary="Direct fast response")]
+            result.final_answer = response.content
+            result.confidence_score = 1.0
+            result.total_latency = (datetime.now() - start_time).total_seconds()
+            
+            yield self._create_progress("round1_progress",
+                f"[OK] {agent_resp.provider}/{agent_resp.model[:20]}",
+                {"agent": agent_resp.agent_id, "latency": f"{agent_resp.latency:.1f}s"})
+            
+            yield self._create_progress("complete", 
+                f"Complete! (Total: {result.total_latency:.1f}s)",
+                {"latency": result.total_latency, "confidence": result.confidence_score})
+            
+            yield self._create_final_result(result)
+            return
+
+        # === PATH 2: MEDIUM QUERIES (Standard coding, explanations, moderate math) ===
+        # 2 parallel agents, quick consensus scoring, fast delivery (5-15s response)
+        if difficulty == "medium":
+            yield self._create_progress("round1_start", "Generation: Dual-agent solution creation...")
+            
+            # Use top 2 generators for speed
+            gen_config = model_config["generation"][:2]
+            gen_tasks = [
+                self._generate_solution(query, category, f"agent_{i+1}", config)
+                for i, config in enumerate(gen_config)
+            ]
+            
+            round1_responses = []
+            for completed_task in asyncio.as_completed(gen_tasks):
+                response = await completed_task
+                round1_responses.append(response)
+                yield self._create_progress("round1_progress",
+                    f"[OK] {response.provider}/{response.model.split('/')[-1][:20]}",
+                    {"agent": response.agent_id, "latency": f"{response.latency:.1f}s"})
+            
+            round1_responses.sort(key=lambda r: r.agent_id)
+            result.round1_responses = round1_responses
+            
+            # Evaluate solutions
+            yield self._create_progress("evaluation", "Evaluating solutions...")
+            if category == "code":
+                execution_results = await self._test_code_solutions(round1_responses)
+                result.execution_feedback = execution_results
+                for i, response in enumerate(round1_responses):
+                    if i < len(execution_results):
+                        response.execution_result = execution_results[i]
+            
+            scores = await strategy.evaluate_solutions(query, round1_responses, self.llm_manager)
+            result.scores = scores
+            winner_idx = max(scores, key=lambda x: x.total_score).solution_idx if scores else 0
+            result.winner_idx = winner_idx
+            winner = round1_responses[winner_idx]
+            
+            yield self._create_progress("winner_selected", 
+                f"Best solution: Agent {winner_idx + 1} (Score: {scores[winner_idx].total_score}/20)",
+                {"winner": winner_idx, "score": scores[winner_idx].total_score})
+            
+            # Use winner directly as final answer (clean, fast, no extra 20s overhead)
+            result.final_answer = winner.content
+            result.confidence_score = scores[winner_idx].total_score / 20.0
+            result.total_latency = (datetime.now() - start_time).total_seconds()
+            
+            yield self._create_progress("complete", 
+                f"Complete! (Total: {result.total_latency:.1f}s)",
+                {"latency": result.total_latency, "confidence": result.confidence_score})
+            
+            yield self._create_final_result(result)
+            return
+
+        # === PATH 3: COMPLEX QUERIES (Multi-step architecture, deep proofs, complex puzzles) ===
+        # Full multi-agent debate with scoring, refinement and synthesis (strictly < 45s)
+        yield self._create_progress("round1_start", "Generation: Creating multi-agent solutions...")
         
         gen_config = model_config["generation"]
         gen_tasks = [
@@ -104,36 +200,22 @@ class DebateOrchestrator:
                 f"[OK] {response.provider}/{response.model.split('/')[-1][:20]}",
                 {"agent": response.agent_id, "latency": f"{response.latency:.1f}s"})
         
-        # Sort responses by agent_id to keep consistent order (agent_1, agent_2, agent_3)
         round1_responses.sort(key=lambda r: r.agent_id)
         result.round1_responses = round1_responses
         
-        # === ROUND 2: Evaluation (Scoring) ===
+        # Evaluation
         yield self._create_progress("evaluation", "Evaluating solutions...")
-        
-        # Code execution if applicable
         if category == "code":
-            yield self._create_progress("execution", "Testing code...")
             execution_results = await self._test_code_solutions(round1_responses)
             result.execution_feedback = execution_results
             for i, response in enumerate(round1_responses):
                 if i < len(execution_results):
                     response.execution_result = execution_results[i]
         
-        # Score all solutions
         scores = await strategy.evaluate_solutions(query, round1_responses, self.llm_manager)
         result.scores = scores
         
-        # Log scores
-        for score in sorted(scores, key=lambda x: x.total_score, reverse=True):
-            logger.info(f"Solution {score.solution_idx}: {score.total_score}/20 - {score.summary}")
-        
-        # Check early stop
-        if strategy.should_skip_critique(round1_responses, scores):
-            yield self._create_progress("early_stop", "High quality detected, optimizing...")
-        
-        # Pick winner
-        winner_idx = max(scores, key=lambda x: x.total_score).solution_idx
+        winner_idx = max(scores, key=lambda x: x.total_score).solution_idx if scores else 0
         result.winner_idx = winner_idx
         winner = round1_responses[winner_idx]
         
@@ -141,17 +223,26 @@ class DebateOrchestrator:
             f"Best solution: Agent {winner_idx + 1} (Score: {scores[winner_idx].total_score}/20)",
             {"winner": winner_idx, "score": scores[winner_idx].total_score})
         
-        # === ROUND 3: Refinement (Iterative Improvement) ===
-        yield self._create_progress("refinement_start", "Refinement: Improving winner...")
-        
-        # Generate critiques first (needed for refinement)
+        # Check early stopping
+        if strategy.should_skip_critique(round1_responses, scores):
+            yield self._create_progress("early_stop", "High consensus reached, finalizing...")
+            result.final_answer = winner.content
+            result.confidence_score = scores[winner_idx].total_score / 20.0
+            result.total_latency = (datetime.now() - start_time).total_seconds()
+            yield self._create_progress("complete", 
+                f"Complete! (Total: {result.total_latency:.1f}s)",
+                {"latency": result.total_latency, "confidence": result.confidence_score})
+            yield self._create_final_result(result)
+            return
+
+        # Refinement
+        yield self._create_progress("refinement_start", "Refinement: Polishing winning solution...")
         critiques = await self._generate_critiques(query, winner, round1_responses, strategy)
         
-        # Now refine with 2 models
         refinement_config = model_config.get("refinement", [model_config["synthesis"]])
         refinement_tasks = [
             strategy.refine_solution(query, winner, critiques, self.llm_manager, config)
-            for config in refinement_config[:2]  # Max 2 refiners
+            for config in refinement_config[:1]  # 1 refiner for speed
         ]
         
         refinement_responses = []
@@ -165,9 +256,8 @@ class DebateOrchestrator:
         refinement_responses.sort(key=lambda r: r.agent_id)
         result.refinement_responses = refinement_responses
         
-        # === ROUND 4: Synthesis (Hierarchical) ===
+        # Synthesis
         yield self._create_progress("synthesis_start", "Synthesis: Finalizing...")
-        
         final_response = await strategy.hierarchical_synthesis(
             query=query,
             winner=winner,
