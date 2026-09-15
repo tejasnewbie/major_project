@@ -1,0 +1,194 @@
+# Council of Frontiers - Maximum Quality Architecture v2
+
+## 🎯 New Architecture: Iterative Refinement + Hierarchical Synthesis
+
+### 4-Round Process (was 3)
+
+```
+Round 1: GENERATION (3 models)
+  ├─ Model A (NVIDIA/NIM) → Solution 1
+  ├─ Model B (Groq) → Solution 2
+  └─ Model C (Cerebras) → Solution 3
+
+Round 2: EVALUATION (Auto-scoring)
+  ├─ Score each solution (0-20)
+  ├─ Code: Execute & test
+  └─ Pick WINNER (highest score)
+
+Round 3: REFINEMENT (Iterative - NEW!)
+  ├─ Critique winner's weaknesses
+  ├─ Model D improves winner
+  └─ Model E improves winner again
+  
+Round 4: SYNTHESIS (Hierarchical - NEW!)
+  ├─ Select best from: original + 2 improvements
+  ├─ Final polish
+  └─ Output production-ready solution
+```
+
+---
+
+## 🔥 Key Improvements
+
+### 1. Iterative Refinement (Not Just Critique)
+**Before:** Models critiqued each other → Arbiter mashed them together  
+**After:** Models **improve the winner** → Progressive enhancement
+
+**Why Better:**
+- Preserves what works
+- Fixes specific issues
+- Builds on best foundation
+- No Frankenstein solutions
+
+### 2. Hierarchical Synthesis
+**Before:** One prompt: "combine everything"  
+**After:** Step-by-step:
+1. Select single best solution
+2. Apply targeted improvements
+3. Professional polish
+
+**Why Better:**
+- Clear decision process
+- Focused improvements
+- Quality control at each step
+
+### 3. Category-Optimized Models
+
+| Category | Best Models Used | Why |
+|----------|-----------------|-----|
+| **Design** | Kimi K2.5 (synthesis), DeepSeek (creative) | Visual reasoning |
+| **Math** | DeepSeek (primary), Kimi K2.5 (verification) | Logic & proof |
+| **Code** | Kimi K2.5 (synthesis), DeepSeek (optimization) | Code understanding |
+| **Factual** | GLM4.7 (analysis), Kimi K2.5 (synthesis) | Research & depth |
+| **Writing** | Kimi K2.5 (all rounds) | Language excellence |
+
+### 4. Kimi K2.5 - New Star Model
+- **32B active parameters, 1T total (MoE)**
+- **Best at:** Synthesis, reasoning, code
+- **Used for:** Final synthesis, design tasks, writing
+
+---
+
+## 📊 Quality Improvements
+
+| Aspect | Before | After |
+|--------|--------|-------|
+| **Synthesis** | Mash all solutions | Pick best + improve |
+| **Refinement** | Critique only | Actually improve |
+| **Model Selection** | Fixed | Category-optimized |
+| **Token Management** | Could overflow | Auto-truncate |
+| **Bug Detection** | General critique | Targeted fixes |
+
+---
+
+## 🚀 Testing
+
+### Design Question (Test Iterative Refinement)
+```
+"Create an HTML5 Canvas particle system where particles follow mouse 
+with trail effects and explode on click with physics"
+```
+
+**Expected Flow:**
+1. 3 different canvas approaches generated
+2. Scored on creativity + functionality
+3. Winner picked (best overall)
+4. 2 models improve the winner
+5. Best of (original + improvements) selected
+6. Final polished code output
+
+### Math Question (Test Logic)
+```
+"Prove that the sum of squares of first n natural numbers is n(n+1)(2n+1)/6"
+```
+
+### Code Question (Test Execution)
+```
+"Implement a thread-safe LRU cache with O(1) get and put operations"
+```
+
+---
+
+## ⏱️ Expected Timing
+
+| Round | Time | Action |
+|-------|------|--------|
+| Generation | 15-30s | 3 parallel solutions |
+| Evaluation | 5-10s | Scoring + execution |
+| Refinement | 30-60s | 2 models improve winner |
+| Synthesis | 10-20s | Select + polish |
+| **Total** | **60-120s** | High quality output |
+
+---
+
+## 🎨 Model Assignments by Category
+
+### Design
+- **Generation:** DeepSeek (creative), Llama 4 Maverick (fast), Cerebras 70B (visual)
+- **Scoring:** GLM4.7
+- **Refinement:** Kimi K2.5, Llama 3.3
+- **Synthesis:** Kimi K2.5 ⭐
+
+### Math
+- **Generation:** DeepSeek (rigorous), Llama 3.3 (clear), Cerebras 70B (formal)
+- **Scoring:** DeepSeek
+- **Refinement:** DeepSeek, GLM4.7
+- **Synthesis:** DeepSeek ⭐
+
+### Code
+- **Generation:** DeepSeek (optimal), Llama 4 (clean), Cerebras 70B (robust)
+- **Scoring:** GLM4.7
+- **Refinement:** Kimi K2.5, Llama 3.3
+- **Synthesis:** Kimi K2.5 ⭐
+
+### Writing
+- **Generation:** Kimi K2.5 (engaging), GPT-OSS (professional), Cerebras 70B (creative)
+- **Scoring:** Kimi K2.5
+- **Refinement:** Kimi K2.5, GLM4.7
+- **Synthesis:** Kimi K2.5 ⭐
+
+---
+
+## 🔧 Technical Changes
+
+### New Files
+- `app/core/strategies.py` - Category strategies with refinement
+- `PROJECT_CONTEXT.md` - Quick reference
+
+### Modified Files
+- `app/services/debate_orchestrator.py` - 4-round process
+- `app/core/config.py` - Category-based model config
+- `app/core/classifier.py` - Problem classification
+
+### Key Methods Added
+- `refine_solution()` - Iterative improvement
+- `hierarchical_synthesis()` - Step-by-step synthesis
+- `evaluate_solutions()` - Auto-scoring
+
+---
+
+## ✅ Quality Checklist
+
+- [ ] Solutions scored objectively
+- [ ] Winner selected, not combined
+- [ ] Winner improved iteratively
+- [ ] Final solution polished
+- [ ] Token limits respected
+- [ ] Category-appropriate models used
+- [ ] Kimi K2.5 for final synthesis
+
+---
+
+## 🎯 Success Metrics
+
+**Before:**
+- Synthesis: Frankenstein solutions
+- Quality: Moderate
+- Bug fixing: Manual
+
+**After:**
+- Synthesis: Best solution improved
+- Quality: High (flagship-level)
+- Bug fixing: Automated in refinement
+
+**Test:** Run design question, should get single polished solution (not mashup)

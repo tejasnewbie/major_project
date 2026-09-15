@@ -1,0 +1,219 @@
+/* ========================================
+   Council of Frontiers - Neo-Brutalist Dark
+   Color Palette: Teal/Cyan Spectrum
+   ======================================== */
+
+/* Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap');
+
+/* CSS Variables - User Provided Palette */
+:root {
+  /* Core Colors - From User Palette */
+  --bg-primary: #2b3a3d;
+  /* Dark Charcoal-Teal */
+  --bg-secondary: #344547;
+  /* Slightly lighter */
+  --bg-tertiary: #3d5052;
+  /* Even lighter */
+  --bg-elevated: #466062;
+
+  /* Text Colors */
+  --text-primary: #d4e5e7;
+  /* Light mint for readability */
+  --text-secondary: #9abcbf;
+  --text-tertiary: #6a9499;
+  --text-muted: #4a7377;
+
+  /* PRIMARY ACCENT - Bright Teal/Cyan from palette */
+  --accent: #0f9b9b;
+  /* Bright Teal */
+  --accent-light: #12b5b5;
+  /* Lighter Teal */
+  --accent-dark: #0a7878;
+  /* Darker Teal */
+  --accent-contrast: #ffffff;
+
+  /* SECONDARY ACCENT - Medium Teal from palette */
+  --secondary: #3e6b6e;
+  /* Medium Teal */
+  --secondary-light: #4d8285;
+  --secondary-dark: #2f5456;
+  --secondary-contrast: #ffffff;
+
+  /* TERTIARY - Pale Mint for highlights */
+  --tertiary: #cfe0de;
+  /* Pale Mint */
+  --tertiary-light: #e5f0ef;
+  --tertiary-contrast: #2b3a3d;
+
+  /* Semantic */
+  --success: #2ecc71;
+  /* Emerald Green */
+  --warning: #f5a623;
+  /* Amber */
+  --error: #e74c3c;
+  /* Soft Red */
+  --info: #12b5b5;
+  /* Use accent */
+
+  /* Provider Colors */
+  --provider-nvidia: #76b900;
+  --provider-groq: #f55036;
+  --provider-cerebras: #12b5b5;
+
+  /* Borders */
+  --border: #4a6568;
+  --border-strong: #5d7a7d;
+  --border-active: var(--accent);
+
+  /* Typography */
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Font Sizes */
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-md: 18px;
+  --text-lg: 24px;
+  --text-xl: 32px;
+  --text-2xl: 48px;
+  --text-3xl: 64px;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  /* UI Properties */
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-full: 0px;
+
+  --shadow-sm: 2px 2px 0px var(--border);
+  --shadow-md: 4px 4px 0px var(--accent-dark);
+  --shadow-lg: 8px 8px 0px var(--accent-dark);
+  --shadow-accent: 4px 4px 0px var(--accent);
+  --shadow-secondary: 4px 4px 0px var(--secondary-dark);
+
+  /* Transitions */
+  --transition-fast: 100ms ease-out;
+  --transition-base: 200ms ease-out;
+  --transition-slow: 300ms ease-out;
+}
+
+/* Reset & Base */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Selection */
+::selection {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 12px;
+  background: var(--bg-primary);
+  border-left: 1px solid var(--border);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--secondary);
+  border: 1px solid var(--border);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* Utilities */
+.mono {
+  font-family: var(--font-mono);
+}
+
+.bold {
+  font-weight: 800;
+}
+
+.text-accent {
+  color: var(--accent);
+}
+
+.text-secondary-accent {
+  color: var(--secondary);
+}
+
+.text-tertiary-accent {
+  color: var(--tertiary);
+}
+
+.bg-accent {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.bg-secondary-accent {
+  background: var(--secondary);
+  color: var(--secondary-contrast);
+}
+
+/* Syntax Highlighting */
+.code-keyword {
+  color: var(--accent-light);
+  font-weight: bold;
+}
+
+.code-string {
+  color: var(--tertiary);
+}
+
+.code-comment {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.code-function {
+  color: var(--accent);
+}
+
+.code-number {
+  color: var(--tertiary-light);
+}
+
+/* Inline Code */
+.inline-code {
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  color: var(--accent-light);
+}

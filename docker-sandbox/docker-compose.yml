@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  code-sandbox:
+    build: .
+    container_name: council-sandbox
+    read_only: true
+    mem_limit: 512m
+    cpus: '0.5'
+    network_mode: none
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+    stdin_open: true
+    tty: false

@@ -1,0 +1,113 @@
+/* Thinking Bar - Neo-Brutalist */
+
+.thinking-bar {
+  width: 100%;
+  border: 3px solid var(--secondary);
+  background: var(--bg-secondary);
+  padding: 0;
+  margin-bottom: var(--space-xl);
+  box-shadow: 6px 6px 0px var(--secondary-dark);
+  overflow: hidden;
+}
+
+.thinking-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-md);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  text-transform: uppercase;
+  background: var(--secondary);
+  color: var(--secondary-contrast);
+  border-bottom: 2px solid var(--secondary-dark);
+}
+
+.thinking-stage {
+  font-weight: 700;
+  color: var(--secondary-contrast);
+}
+
+.thinking-timer {
+  color: var(--secondary-contrast);
+  opacity: 0.8;
+}
+
+.thinking-message {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  padding: var(--space-md);
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Progress Bar - Retro/Blocky */
+.progress-container {
+  height: 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-light) 100%);
+  /* Striped pattern */
+  background-image: linear-gradient(45deg,
+      rgba(0, 0, 0, 0.15) 25%,
+      transparent 25%,
+      transparent 50%,
+      rgba(0, 0, 0, 0.15) 50%,
+      rgba(0, 0, 0, 0.15) 75%,
+      transparent 75%,
+      transparent);
+  background-size: 20px 20px;
+  animation: moveStripes 1s linear infinite;
+  transition: width 0.3s ease-out;
+}
+
+@keyframes moveStripes {
+  0% {
+    background-position: 0 0;
+  }
+
+  100% {
+    background-position: 20px 20px;
+  }
+}
+
+/* Agents Grid */
+.agents-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.thinking-agent {
+  border: 1px solid var(--border);
+  padding: var(--space-xs);
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-primary);
+  opacity: 0.5;
+}
+
+.thinking-agent.active {
+  border-color: var(--secondary);
+  color: var(--secondary);
+  opacity: 1;
+  background: var(--bg-elevated);
+  box-shadow: 2px 2px 0px var(--secondary), 0 0 15px rgba(26, 188, 156, 0.15);
+}
+
+.thinking-agent.done {
+  border-color: var(--success);
+  color: var(--success);
+  opacity: 1;
+  background: var(--bg-secondary);
+}
