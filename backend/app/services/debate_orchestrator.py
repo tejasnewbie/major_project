@@ -210,7 +210,7 @@ Provide a complete, high-quality solution."""
             prompt=f"Task: {query}",
             system_prompt=system_prompt,
             temperature=0.7,
-            max_tokens=4000
+            max_tokens=1500
         )
         
         return AgentResponse(
@@ -236,9 +236,10 @@ Provide a complete, high-quality solution."""
         
         # Get 2 strongest models to critique
         model_config = strategy.get_round_config()
+        # Use fast groq models for critiquing
         critique_configs = [
-            model_config.get("scoring", {"provider": "nvidia", "model": "nvidia_model_tertiary"}),
-            {"provider": "groq", "model": "groq_model_secondary"}
+            model_config.get("scoring", {"provider": "groq", "model": "llama-3.3-70b-versatile"}),
+            {"provider": "groq", "model": "llama-3.1-8b-instant"}
         ]
         
         for i, config in enumerate(critique_configs[:2]):

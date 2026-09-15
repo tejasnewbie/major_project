@@ -96,7 +96,8 @@ class GroqClient(BaseLLMClient):
     ) -> LLMResponse:
         """Generate completion using Groq SDK with automatic key rotation on error or 15s timeout."""
         start_time = time.time()
-        actual_model = getattr(self.settings, model, model)
+        # model is already a literal model ID — no settings lookup needed
+        actual_model = model
         
         messages = []
         if system_prompt:
@@ -204,7 +205,8 @@ class OpenRouterClient(BaseLLMClient):
     ) -> LLMResponse:
         """Generate completion using OpenRouter with automatic key rotation on error or 15s timeout."""
         start_time = time.time()
-        actual_model = getattr(self.settings, model, model)
+        # model is already a literal model ID — no settings lookup needed
+        actual_model = model
         
         messages = []
         if system_prompt:
@@ -326,7 +328,8 @@ class NvidiaClient(BaseLLMClient):
     ) -> LLMResponse:
         """Generate completion using OpenAI SDK for NVIDIA NIM with key rotation on error or 15s timeout."""
         start_time = time.time()
-        actual_model = getattr(self.settings, model, model)
+        # model is already a literal model ID — no settings lookup needed
+        actual_model = model
         
         messages = []
         if system_prompt:
@@ -535,37 +538,8 @@ class LLMClientManager:
         )
     
     def _get_model_for_provider(self, provider: str, requested_model: str) -> str:
-        """Get the actual model name for a provider."""
-        # Determine model role (primary, secondary, fallback/tertiary)
-        role = "primary"
-        if "secondary" in requested_model.lower():
-            role = "secondary"
-        elif "tertiary" in requested_model.lower() or "fallback" in requested_model.lower():
-            role = "fallback"
-
-        model_mapping = {
-            "groq": {
-                "primary": self.settings.groq_model_primary,
-                "secondary": self.settings.groq_model_secondary,
-                "fallback": self.settings.groq_model_fallback,
-            },
-            "open_router": {
-                "primary": self.settings.open_router_model_primary,
-                "secondary": self.settings.open_router_model_secondary,
-                "fallback": self.settings.open_router_model_fallback,
-            },
-            "nvidia": {
-                "primary": self.settings.nvidia_model_primary,
-                "secondary": self.settings.nvidia_model_secondary,
-                "fallback": self.settings.nvidia_model_tertiary,
-            }
-        }
-
-        if provider in model_mapping and role in model_mapping[provider]:
-            return model_mapping[provider][role]
-
-        # Return the requested model attribute or as-is
-        return getattr(self.settings, requested_model, requested_model)
+        """Return the model ID as-is — model names are already literal IDs in CATEGORY_MODEL_CONFIG."""
+        return requested_model
     
     async def close_all(self):
         """Close all client connections."""
